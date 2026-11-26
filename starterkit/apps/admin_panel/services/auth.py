@@ -25,7 +25,7 @@ def get_login_page(*, next_url: str) -> dict:
 
 def login_user(request: HttpRequest, data: LoginInputDTO) -> LoginResultDTO:
     """
-    Log in an active staff user, mirroring Django admin.
+    Log in an active user, with optional staff-only access.
 
     The error message is identical for unknown users, wrong passwords, inactive
     accounts and non-staff accounts so the form cannot be used to probe accounts.
@@ -47,11 +47,14 @@ def login_user(request: HttpRequest, data: LoginInputDTO) -> LoginResultDTO:
         return _failure(username, data, errors)
 
     user = authenticate(request, username=username, password=data.password)
-    if user is None or not can_access_admin(user):
+    if user is None or not user.is_active or (data.require_staff and not can_access_admin(user)):
         window = settings.ADMIN_LOGIN_LOCKOUT_SECONDS
         attempt_counter.increment(user_key, window_seconds=window)
         attempt_counter.increment(client_key, window_seconds=window)
-        return _failure(username, data, {"non_field_errors": [INVALID_CREDENTIALS_ERROR]})
+        error = INVALID_CREDENTIALS_ERROR if data.require_staff else (
+            "Please enter the correct username and password."
+        )
+        return _failure(username, data, {"non_field_errors": [error]})
 
     attempt_counter.reset(user_key)
     django_login(request, user)

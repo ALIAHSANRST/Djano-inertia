@@ -63,6 +63,47 @@ Background jobs need Redis, a Celery worker and Beat. Start Redis with `docker c
 
 The full walkthrough is in [Getting started](docs/getting-started.md).
 
+## Project Budget Requests
+
+Open `/budgets/` and sign in with a Django account. Django routes each user to the dashboard for their budget role.
+
+| Role | Workflow |
+|---|---|
+| Client | Submit requests, track personal requests and review notes, and edit or withdraw pending requests. |
+| Manager | Review the organization-wide queue and history. Approval notes are optional. Rejections require a note. |
+| Admin | See organization-wide pending and approved funding totals, browse all requests, and permanently delete records. Django superusers have this role automatically. |
+
+### Set up the budget workflow
+
+From the repository root, install the locked dependencies, migrate the database, and create a superuser.
+
+```bash
+uv sync --locked
+uv run python starterkit/manage.py migrate
+uv run python starterkit/manage.py createsuperuser
+```
+
+Run `uv run python starterkit/manage.py runserver` from the repository root. In a second terminal, run `npm ci` and `npm run dev` from `starterkit/frontend`. Sign in to `/admin/` with the superuser and use **Users → Add user** to create separate accounts for the Client and Manager. Existing active accounts default to Client. As a superuser, use the **Budget role** picker on the user form to assign Client, Manager, or Admin. The management command remains available for server-side administration.
+
+```bash
+uv run python starterkit/manage.py set_budget_role budget-manager manager
+uv run python starterkit/manage.py set_budget_role budget-admin admin
+```
+
+Use the actual account usernames in these commands. A separate Budget Admin account is optional. Django staff status controls access to the starter admin console independently of budget roles.
+
+Local development defaults to SQLite at `starterkit/db.sqlite3`, debug mode, and the Vite dev server at `http://localhost:5173`. Set `DJANGO_SQLITE_PATH` for a custom database path. For deployment, set `DJANGO_DEBUG=false`, `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS` for any additional trusted origins, and `VITE_DEV_MODE=false`. Run `npm ci` and `npm run build` in the frontend directory, then `uv run python starterkit/manage.py migrate` and `uv run python starterkit/manage.py collectstatic --noinput` from the root. See [Deployment](docs/deployment.md) for HTTPS, static files, cache, and process configuration. The budget workflow has no dependency on Celery or Redis for local use.
+
+### Architecture and trade-offs
+
+- Django retains the starter User model. An optional one-to-one profile holds the budget role. The trusted management command handles assignments. Native Django account mutations require a superuser. Delegated account management lives in the existing Inertia console and protects elevated budget accounts.
+- The budgets app separates thin Inertia views, immutable input DTOs, workflow services, domain policies, and query selectors. React uses Inertia props and forms with existing shadcn/ui primitives.
+- Status and reviewer metadata are constrained in the database. Conditional updates check both pending state and revision in the same statement to prevent double decisions, edits after a decision, and approval of a changed request.
+- Withdrawal preserves the record and excludes it from the active queue and funding totals. Permanent deletion removes the record and its review details. Referenced users can be deactivated while their request or review history is retained.
+- Totals use exact integer-cent aggregation. The workflow assumes one organization-wide currency with two decimal places. It uses the starter SQLite configuration and has no separate approval audit log, notifications, or currency conversion.
+
+Run the feature tests with `uv run python starterkit/manage.py test apps.budgets`.
+
 ## Documentation
 
 | Guide | What's inside |

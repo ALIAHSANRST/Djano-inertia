@@ -4,6 +4,7 @@ import { Button } from "@/Components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/Components/ui/card"
 import { Checkbox } from "@/Components/ui/checkbox"
 import { Input } from "@/Components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select"
 import { CheckboxList } from "@/Components/admin/CheckboxList"
 import { FormField } from "@/Components/admin/FormField"
 import { cn } from "@/lib/utils"
@@ -38,6 +39,7 @@ export function UserForm({
   setData,
   errors = {},
   groupsChoices = [],
+  budgetRoleChoices = [],
   canGrantPrivileges,
   processing,
   onSubmit,
@@ -136,6 +138,30 @@ export function UserForm({
               )
             })}
           </div>
+
+          {canGrantPrivileges && (
+            <FormField
+              label="Budget role"
+              htmlFor="budget_role"
+              error={errors.budget_role?.[0]}
+              description={data.is_superuser ? "Superusers automatically have the Admin budget role." : undefined}
+            >
+              <Select
+                value={data.is_superuser ? "ADMIN" : (data.budget_role ?? "CLIENT")}
+                onValueChange={(role) => setData("budget_role", role)}
+                disabled={data.is_superuser}
+              >
+                <SelectTrigger id="budget_role" aria-invalid={!!errors.budget_role}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {budgetRoleChoices.map(({ value, label }) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+          )}
 
           <FormField label="Groups" error={errors.group_ids?.[0]}>
             <CheckboxList

@@ -32,7 +32,7 @@ const TOASTS = {
  *
  * `breadcrumbs` are { label, route?, params? }; the last entry is the current page.
  */
-export function AdminLayout({ breadcrumbs = [], children }) {
+export function AdminLayout({ breadcrumbs = [], budget = false, children }) {
   const { props, url } = usePage()
   const route = useRoute()
   const isMobile = useIsMobile()
@@ -57,13 +57,13 @@ export function AdminLayout({ breadcrumbs = [], children }) {
 
   const resolvedBreadcrumbs = React.useMemo(
     () => [
-      { label: "Admin", href: route("admin_dashboard") },
+      { label: "Admin", href: route(budget ? "budget_admin" : "admin_dashboard") },
       ...breadcrumbs.map((crumb) => ({
         label: crumb.label,
         href: crumb.route ? route(crumb.route, crumb.params) : undefined,
       })),
     ],
-    [breadcrumbs, route]
+    [breadcrumbs, budget, route]
   )
 
   // Django messages arrive as the shared `flash` prop; show each once as a toast.
@@ -84,7 +84,7 @@ export function AdminLayout({ breadcrumbs = [], children }) {
     return () => window.removeEventListener("keydown", handleKeydown)
   }, [])
 
-  const logout = () => router.post(route("logout"))
+  const logout = () => router.post(route("logout"), budget ? { budget: true } : {})
   const closeMobileSidebar = () => {
     if (isMobile) sidebar.setOpenMobile(false)
   }
@@ -98,7 +98,7 @@ export function AdminLayout({ breadcrumbs = [], children }) {
       isMobile={isMobile}
     >
       <AppSidebar
-        homeHref={route("admin_dashboard")}
+        homeHref={route(budget ? "budget_admin" : "admin_dashboard")}
         navItems={navItems}
         user={props.auth?.user}
         isMobile={isMobile}

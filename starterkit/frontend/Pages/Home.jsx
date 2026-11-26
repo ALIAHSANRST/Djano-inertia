@@ -80,6 +80,9 @@ export default function Home() {
               {theme === "light" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
           
+            <Button asChild size="sm" variant="outline">
+              <Link href={route("budget_index")}>Budget requests</Link>
+            </Button>
             <Button
               size="sm"
               asChild
