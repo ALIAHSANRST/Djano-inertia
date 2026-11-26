@@ -3,6 +3,7 @@ from django.middleware.csrf import get_token
 from inertia import share
 
 from apps.admin_panel.services.navigation import get_admin_navigation
+from apps.budgets.domain.policies import Role, role_for
 from main.routes import route_map
 
 
@@ -32,6 +33,18 @@ def get_flash_props(request) -> list[dict]:
     ]
 
 
+def get_shared_admin_navigation(actor) -> list[dict]:
+    items = get_admin_navigation(actor=actor)
+    if role_for(actor) == Role.ADMIN:
+        items.insert(1, {
+            "section": "Overview",
+            "label": "Budget requests",
+            "icon": "dashboard",
+            "route": "budget_admin",
+        })
+    return items
+
+
 def inertia_shared_props(get_response):
     """
     Share global Inertia props, keeping Django authoritative.
@@ -51,7 +64,7 @@ def inertia_shared_props(get_response):
             auth=lambda: get_auth_props(request),
             flash=lambda: get_flash_props(request),
             routes=route_map,
-            admin_nav=lambda: get_admin_navigation(actor=request.user),
+            admin_nav=lambda: get_shared_admin_navigation(request.user),
         )
         return get_response(request)
 

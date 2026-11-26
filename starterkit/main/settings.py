@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'apps.admin_panel',
     'apps.system',
+    'apps.budgets',
 ]
 
 MIDDLEWARE = [
@@ -149,6 +150,8 @@ SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", False)
 SECURE_HSTS_SECONDS = env_int("DJANGO_SECURE_HSTS_SECONDS", 0)
 if env_bool("DJANGO_BEHIND_TLS_PROXY", False):
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+CSRF_FAILURE_VIEW = "main.errors.csrf_failure"
 
 # CSRF uses Django's default cookie ("csrftoken") and header ("X-CSRFToken");
 # frontend/app.jsx reads the cookie on every Inertia request. Avoid renaming the

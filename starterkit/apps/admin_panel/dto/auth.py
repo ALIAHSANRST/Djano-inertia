@@ -13,6 +13,7 @@ class LoginInputDTO:
     next_url: str
     default_redirect_url: str
     client_ip: str
+    require_staff: bool = True
 
 
 @dataclass(frozen=True)

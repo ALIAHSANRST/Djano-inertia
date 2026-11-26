@@ -4,7 +4,10 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.db.models.deletion import ProtectedError
 from django.http import Http404
+
+from apps.budgets.selectors import requests as budget_roles
 
 from apps.admin_panel.domain import policies
 from apps.admin_panel.dto.common import DeleteResultDTO, ListQueryDTO
@@ -80,6 +83,7 @@ def create_user(*, actor: User, data: UserFormInputDTO) -> UserFormResultDTO:
 
     errors = merge_errors(
         _privilege_errors(actor, data, current=None),
+        _budget_role_errors(actor, data),
         _model_errors(user),
         _password_errors(user, data.password, required=True),
     )
@@ -89,6 +93,8 @@ def create_user(*, actor: User, data: UserFormInputDTO) -> UserFormResultDTO:
                 user.set_password(data.password)
                 user.save()
                 user.groups.set(group_selectors.groups_by_ids(group_ids))
+                if data.budget_role is not None and not user.is_superuser:
+                    budget_roles.set_role(user, data.budget_role)
         except IntegrityError:
             errors = {"username": [DUPLICATE_USERNAME_ERROR]}
 
@@ -128,6 +134,7 @@ def update_user(*, actor: User, user_id: int, data: UserFormInputDTO) -> UserFor
     errors = merge_errors(
         _privilege_errors(actor, data, current=current),
         _self_lockout_errors(actor, user, data),
+        _budget_role_errors(actor, data),
         _model_errors(user),
         _password_errors(user, data.password, required=False),
     )
@@ -138,6 +145,8 @@ def update_user(*, actor: User, user_id: int, data: UserFormInputDTO) -> UserFor
                     user.set_password(data.password)
                 user.save()
                 user.groups.set(group_selectors.groups_by_ids(group_ids))
+                if data.budget_role is not None and not user.is_superuser:
+                    budget_roles.set_role(user, data.budget_role)
         except IntegrityError:
             errors = {"username": [DUPLICATE_USERNAME_ERROR]}
 
@@ -173,7 +182,10 @@ def delete_user(*, actor: User, user_id: int) -> DeleteResultDTO:
         )
 
     username = user.username
-    user.delete()
+    try:
+        user.delete()
+    except ProtectedError:
+        return DeleteResultDTO(success=False, message="This account is referenced by a budget request.")
     return DeleteResultDTO(success=True, message=f'User "{username}" was deleted.')
 
 
@@ -226,6 +238,16 @@ def _privilege_errors(
     if frozenset(data.group_ids) != current_groups:
         errors["group_ids"] = ["Only superusers can change group membership."]
     return errors
+
+
+def _budget_role_errors(actor: User, data: UserFormInputDTO) -> dict[str, list[str]]:
+    if data.budget_role is None:
+        return {}
+    if not policies.can_grant_privileges(actor):
+        return {"budget_role": ["Only superusers can assign a budget role."]}
+    if data.budget_role not in dict(budget_roles.role_choices()):
+        return {"budget_role": ["Select a valid budget role."]}
+    return {}
 
 
 def _self_lockout_errors(actor: User, user: User, data: UserFormInputDTO) -> dict[str, list[str]]:
@@ -286,6 +308,7 @@ def _empty_form() -> dict:
         "is_superuser": False,
         "is_active": True,
         "group_ids": [],
+        "budget_role": "CLIENT",
         "password": "",
     }
 
@@ -300,6 +323,7 @@ def _form_from_user(user: User) -> dict:
         "is_superuser": user.is_superuser,
         "is_active": user.is_active,
         "group_ids": user_selectors.user_group_ids(user),
+        "budget_role": budget_roles.assigned_role(user),
         "password": "",
     }
 
@@ -314,19 +338,26 @@ def _form_from_input(data: UserFormInputDTO) -> dict:
         "is_superuser": data.is_superuser,
         "is_active": data.is_active,
         "group_ids": sorted(frozenset(data.group_ids)),
+        "budget_role": data.budget_role,
         # Never echo a password back to the client.
         "password": "",
     }
 
 
 def _form_page_props(actor: User, *, form: dict, errors: dict) -> dict:
+    can_grant = policies.can_grant_privileges(actor)
+    budget_role = form["budget_role"] if can_grant else None
     return {
-        "form": form,
+        "form": {**form, "budget_role": budget_role},
+        "budget_role_choices": (
+            [{"value": value, "label": label} for value, label in budget_roles.role_choices()]
+            if can_grant else []
+        ),
         "errors": errors,
         "groups_choices": [
             {"id": group.pk, "name": group.name} for group in group_selectors.group_choices()
         ],
-        "can": {"grant_privileges": policies.can_grant_privileges(actor)},
+        "can": {"grant_privileges": can_grant},
     }
 
 

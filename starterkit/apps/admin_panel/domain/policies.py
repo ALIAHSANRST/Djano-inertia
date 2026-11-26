@@ -12,6 +12,8 @@ themselves to superuser.
 
 from django.contrib.auth.models import AbstractBaseUser, AnonymousUser
 
+from apps.budgets.selectors.requests import has_elevated_budget_role
+
 UserLike = AbstractBaseUser | AnonymousUser
 
 
@@ -29,7 +31,7 @@ def can_grant_privileges(user: UserLike) -> bool:
 
 
 def is_privileged_account(user: UserLike) -> bool:
-    return bool(getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
+    return bool(user.is_staff or user.is_superuser or has_elevated_budget_role(user))
 
 
 def _has_admin_perm(user: UserLike, perm: str) -> bool:

@@ -10,7 +10,7 @@ import { useRoute } from "@/composables/useRoute"
 import { AuthLayout } from "@/Layouts/AuthLayout"
 import { cn } from "@/lib/utils"
 
-export default function Login({ form: initialForm, errors = {} }) {
+export default function Login({ form: initialForm, errors = {}, budget = false }) {
   const route = useRoute()
   const { flash } = usePage().props
   const loginForm = useForm(initialForm)
@@ -18,7 +18,7 @@ export default function Login({ form: initialForm, errors = {} }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    loginForm.post(route("login"), {
+    loginForm.post(route(budget ? "budget_login" : "login"), {
       onFinish: () => loginForm.setData("password", ""),
     })
   }
@@ -29,7 +29,7 @@ export default function Login({ form: initialForm, errors = {} }) {
       <div className="flex flex-col gap-2 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
         <p className="text-balance text-sm text-muted-foreground">
-          Sign in with your staff account to continue
+          {budget ? "Sign in to manage budget requests" : "Sign in with your staff account to continue"}
         </p>
       </div>
 
